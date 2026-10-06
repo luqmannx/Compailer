@@ -1184,17 +1184,18 @@ const PYODIDE_VERSION = "0.26.4";
 const PYODIDE_BASE    = "https://cdn.jsdelivr.net/pyodide/v" + PYODIDE_VERSION + "/full/";
 
 /*
- * JSCPP is a pure-JS C++ interpreter.
- * The old jsDelivr URL (…/npm/jscpp@2.0.3/dist/JSCPP.es5.min.js) is dead.
- * We now load the official GitHub Pages build, with a jsDelivr fallback.
+ * JSCPP source URL.
+ * We fetch this on the MAIN THREAD, create a Blob URL, and hand that
+ * to the worker. This sidesteps two problems:
+ *   1. GitHub raw files are served as `text/plain`, which browsers
+ *      refuse to execute via importScripts.
+ *   2. The old jsDelivr / GitHub Pages URLs are 404.
+ * The raw GitHub URL itself works fine for a plain fetch().
  */
-const JSCPP_URLS = [
-  "https://felixhao28.github.io/JSCPP/dist/JSCPP.es5.min.js",
-  "https://cdn.jsdelivr.net/npm/JSCPP@2.0.9/dist/JSCPP.es5.min.js",
-  "https://cdn.jsdelivr.net/npm/jscpp_patched@2.0.10/dist/JSCPP.es5.min.js"
-];
+const JSCPP_SOURCE_URL =
+  "https://raw.githubusercontent.com/felixhao28/JSCPP/gh-pages/dist/JSCPP.es5.min.js";
 
-const MAX_OUTPUT_CHARS = 400000;   // trim runaway output
+const MAX_OUTPUT_CHARS = 400000;
 
 /* ═══════════════════════════════════════════════════════════
    2. DOM SHORTCUTS
@@ -1239,7 +1240,6 @@ const term = (function(){
   function write(text, cls){
     if (text === undefined || text === null || text === "") return;
     text = String(text);
-
     if (chars > MAX_OUTPUT_CHARS) return;
     chars += text.length;
 
@@ -1726,13 +1726,47 @@ els.uploadInput.addEventListener("change", function(){
 });
 
 /* ═══════════════════════════════════════════════════════════
-   11. EXECUTION WORKER (inline source → Blob URL)
+   11. JSCPP — fetched on the main thread, served as a Blob URL
+   ═══════════════════════════════════════════════════════════ */
+let jscppBlobUrl = null;
+let jscppLoading = null;
+
+function loadJscppBlob(){
+  if (jscppBlobUrl) return Promise.resolve(jscppBlobUrl);
+  if (jscppLoading) return jscppLoading;
+
+  jscppLoading = fetch(JSCPP_SOURCE_URL, { mode: "cors" })
+    .then(function(res){
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.text();
+    })
+    .then(function(source){
+      if (!source || source.length < 1000) {
+        throw new Error("The downloaded JSCPP file looks empty or truncated.");
+      }
+      const blob = new Blob([source], { type: "application/javascript" });
+      jscppBlobUrl = URL.createObjectURL(blob);
+      jscppLoading = null;
+      return jscppBlobUrl;
+    })
+    .catch(function(err){
+      jscppLoading = null;
+      throw new Error(
+        "Could not download the C++ interpreter (JSCPP). " +
+        "Check your network connection. Details: " + (err && err.message ? err.message : err)
+      );
+    });
+
+  return jscppLoading;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   12. EXECUTION WORKER
    ═══════════════════════════════════════════════════════════ */
 const WORKER_SRC = `
 'use strict';
 
 var PYODIDE_BASE = '${PYODIDE_BASE}';
-var JSCPP_URLS   = ${JSON.stringify(JSCPP_URLS)};
 
 var runtime = null;
 var pyodide = null;
@@ -1746,7 +1780,7 @@ self.onmessage = function(e){
   if (msg.type === 'init') {
     runtime = msg.runtime;
     post({ type:'status', message:'Downloading runtime…' });
-    initRuntime(runtime).then(function(){
+    initRuntime(runtime, msg.jscppUrl).then(function(){
       post({ type:'ready', runtime: runtime });
     }).catch(function(err){
       post({ type:'error', kind:'init', message: String((err && err.message) || err) });
@@ -1760,7 +1794,7 @@ self.onmessage = function(e){
   }
 };
 
-function initRuntime(rt){
+function initRuntime(rt, jscppUrl){
   if (rt === 'python') {
     if (pyodide) return Promise.resolve();
     importScripts(PYODIDE_BASE + 'pyodide.js');
@@ -1771,28 +1805,16 @@ function initRuntime(rt){
     });
   }
 
-  /* -------- C++ (JSCPP) -------- */
+  /* C++ — the Blob URL was prepared on the main thread. */
   if (jscpp) return Promise.resolve();
+  if (!jscppUrl) throw new Error('C++ runtime URL is missing.');
 
-  var lastErr = null;
-  for (var i = 0; i < JSCPP_URLS.length; i++) {
-    try {
-      importScripts(JSCPP_URLS[i]);
-      jscpp = self.JSCPP;
-      if (!jscpp) throw new Error('JSCPP global not found after import');
-      post({ type:'status', message:'C++ runtime ready.' });
-      return Promise.resolve();
-    } catch (err) {
-      lastErr = err;
-      /* try the next mirror */
-    }
-  }
+  importScripts(jscppUrl);
+  jscpp = self.JSCPP;
+  if (!jscpp) throw new Error('The C++ interpreter could not be initialised.');
 
-  throw new Error(
-    'Could not load the C++ runtime. ' +
-    'The CDN may be blocked by your network. ' +
-    'Last error: ' + (lastErr && lastErr.message ? lastErr.message : lastErr)
-  );
+  post({ type:'status', message:'C++ runtime ready.' });
+  return Promise.resolve();
 }
 
 /* ---------------- Python ---------------- */
@@ -1898,7 +1920,7 @@ try {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   12. RUNTIME MANAGEMENT
+   13. RUNTIME MANAGEMENT
    ═══════════════════════════════════════════════════════════ */
 const runtimes = {
   cpp:    { worker: null, ready: false, loading: null },
@@ -1934,11 +1956,21 @@ function destroyRuntime(lang){
   rt.loading = null;
 }
 
-function getRuntime(lang){
+async function getRuntime(lang){
   const rt = runtimes[lang];
 
-  if (rt.ready && rt.worker) return Promise.resolve(rt.worker);
+  if (rt.ready && rt.worker) return rt.worker;
   if (rt.loading) return rt.loading;
+
+  /* For C++, prepare the Blob URL first (on the main thread). */
+  let jscppUrl = null;
+  if (lang === "cpp") {
+    try {
+      jscppUrl = await loadJscppBlob();
+    } catch (err) {
+      throw err;   // surface the fetch error directly
+    }
+  }
 
   rt.loading = new Promise(function(resolve, reject){
     if (!workerUrl) {
@@ -2007,14 +2039,14 @@ function getRuntime(lang){
       ));
     };
 
-    w.postMessage({ type: "init", runtime: lang });
+    w.postMessage({ type: "init", runtime: lang, jscppUrl: jscppUrl });
   });
 
   return rt.loading;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   13. RUN / STOP
+   14. RUN / STOP
    ═══════════════════════════════════════════════════════════ */
 function formatMs(ms){
   if (!Number.isFinite(ms)) return "";
@@ -2121,17 +2153,13 @@ function handleWorkerMessage(lang, d){
   }
 }
 
-/** Best-effort extraction of a source line number from an error message. */
 function highlightFromMessage(message){
   if (!message) return;
   let m;
-
   m = /line\s+(\d+)/i.exec(message);
   if (m) { markErrorLine(parseInt(m[1], 10)); return; }
-
   m = /:(\d+):(\d+):/.exec(message);
   if (m) { markErrorLine(parseInt(m[1], 10)); return; }
-
   m = /\(line\s+(\d+)\)/i.exec(message);
   if (m) { markErrorLine(parseInt(m[1], 10)); }
 }
@@ -2160,7 +2188,7 @@ function stopCode(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   14. SETTINGS
+   15. SETTINGS
    ═══════════════════════════════════════════════════════════ */
 function syncSettingsUI(){
   els.setTimeoutInput.value = state.settings.timeout;
@@ -2211,7 +2239,7 @@ function bindSettings(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   15. SPLITTER
+   16. SPLITTER
    ═══════════════════════════════════════════════════════════ */
 function initGutter(){
   const split  = els.split;
@@ -2286,7 +2314,7 @@ function initGutter(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   16. WIRING
+   17. WIRING
    ═══════════════════════════════════════════════════════════ */
 function applyStateToUI(){
   if (state.splitA) els.split.style.setProperty("--split-a", state.splitA);
@@ -2341,6 +2369,7 @@ function bindUI(){
   window.addEventListener("beforeunload", function(){
     saveNow();
     if (workerUrl) URL.revokeObjectURL(workerUrl);
+    if (jscppBlobUrl) URL.revokeObjectURL(jscppBlobUrl);
   });
 
   document.addEventListener("visibilitychange", function(){
@@ -2349,7 +2378,7 @@ function bindUI(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   17. BOOT
+   18. BOOT
    ═══════════════════════════════════════════════════════════ */
 function boot(){
   const problems = [];
