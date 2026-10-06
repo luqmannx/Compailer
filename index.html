@@ -1,0 +1,2584 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="Vibex Code Studio — a browser-based C++ and Python playground powered by WebAssembly.">
+<title>Vibex — Code Studio</title>
+
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem('vibex-theme');
+    if(t !== 'light' && t !== 'dark'){
+      t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+
+<!-- CodeMirror 5 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css">
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   1. TOKENS  (same design language as the Vibex landing page)
+   ═══════════════════════════════════════════════════════════ */
+:root{
+  --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Inter,"Segoe UI",Roboto,sans-serif;
+  --font-display:"Bricolage Grotesque",-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+
+  --r-sm:10px; --r-md:14px; --r-lg:18px; --r-xl:28px; --r-pill:980px;
+
+  --ease:cubic-bezier(.22,1,.36,1);
+  --nav-h:56px;
+
+  --bg:#000;
+  --text:#f5f5f7;
+  --text-2:rgba(245,245,247,.72);
+  --text-3:rgba(245,245,247,.48);
+  --text-4:rgba(245,245,247,.30);
+
+  --surface:rgba(255,255,255,.05);
+  --surface-hi:rgba(255,255,255,.09);
+  --border:rgba(255,255,255,.10);
+  --border-hi:rgba(255,255,255,.20);
+
+  --nav-bg:rgba(8,9,12,.72);
+  --nav-line:rgba(255,255,255,.07);
+  --nav-hover:#fff;
+
+  --glass-bg:rgba(18,19,24,.80);
+  --glass-border:rgba(255,255,255,.11);
+  --glass-shadow:0 32px 90px rgba(0,0,0,.6);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.06);
+  --backdrop:rgba(0,0,0,.55);
+
+  --panel-bg:rgba(14,15,19,.78);
+  --panel-head-bg:rgba(255,255,255,.02);
+
+  --input-bg:rgba(255,255,255,.04);
+  --input-bg-focus:rgba(255,255,255,.065);
+  --input-text:#fff;
+  --input-placeholder:rgba(255,255,255,.22);
+
+  --seg-bg:rgba(255,255,255,.06);
+  --seg-thumb:rgba(255,255,255,.14);
+  --seg-shadow:0 1px 3px rgba(0,0,0,.3);
+
+  --btn-primary-bg:#fff;
+  --btn-primary-fg:#000;
+  --btn-primary-border:#fff;
+  --btn-primary-bg-hover:#f2f2f7;
+  --btn-primary-border-hover:#f2f2f7;
+  --btn-shadow:rgba(255,255,255,.10);
+  --btn-shadow-hover:rgba(255,255,255,.16);
+
+  --body-glow-1:rgba(110,132,255,.10);
+  --body-glow-2:rgba(255,255,255,.03);
+  --body-base:#000;
+
+  --ok:#30d158;
+  --warn:#ffd60a;
+  --err:#ff453a;
+  --accent:#6e84ff;
+
+  /* syntax */
+  --syn-key:#ff7ab6;
+  --syn-str:#9ae66e;
+  --syn-num:#f7a45e;
+  --syn-def:#82aaff;
+  --syn-com:#6b7280;
+  --syn-op:#89ddff;
+  --syn-type:#ffcb6b;
+  --syn-var:#e6e8ee;
+}
+
+html[data-theme="light"]{
+  --bg:#fbfbfd;
+  --text:#1d1d1f;
+  --text-2:rgba(29,29,31,.72);
+  --text-3:rgba(29,29,31,.55);
+  --text-4:rgba(29,29,31,.36);
+
+  --surface:rgba(0,0,0,.04);
+  --surface-hi:rgba(0,0,0,.08);
+  --border:rgba(0,0,0,.10);
+  --border-hi:rgba(0,0,0,.20);
+
+  --nav-bg:rgba(251,251,253,.78);
+  --nav-line:rgba(0,0,0,.06);
+  --nav-hover:#1d1d1f;
+
+  --glass-bg:rgba(255,255,255,.90);
+  --glass-border:rgba(0,0,0,.08);
+  --glass-shadow:0 32px 90px rgba(0,0,0,.16);
+  --glass-inset:inset 0 1px 0 rgba(255,255,255,.9);
+  --backdrop:rgba(20,20,24,.28);
+
+  --panel-bg:rgba(255,255,255,.86);
+  --panel-head-bg:rgba(0,0,0,.015);
+
+  --input-bg:rgba(0,0,0,.035);
+  --input-bg-focus:rgba(0,0,0,.05);
+  --input-text:#1d1d1f;
+  --input-placeholder:rgba(29,29,31,.28);
+
+  --seg-bg:rgba(0,0,0,.05);
+  --seg-thumb:#fff;
+  --seg-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04);
+
+  --btn-primary-bg:#1d1d1f;
+  --btn-primary-fg:#fff;
+  --btn-primary-border:#1d1d1f;
+  --btn-primary-bg-hover:#2d2d2f;
+  --btn-primary-border-hover:#2d2d2f;
+  --btn-shadow:rgba(0,0,0,.08);
+  --btn-shadow-hover:rgba(0,0,0,.14);
+
+  --body-glow-1:rgba(110,132,255,.12);
+  --body-glow-2:rgba(0,0,0,.02);
+  --body-base:#fbfbfd;
+
+  --ok:#248a3d;
+  --warn:#b25e00;
+  --err:#d70015;
+  --accent:#3b5bdb;
+
+  --syn-key:#c2185b;
+  --syn-str:#2e7d32;
+  --syn-num:#b25e00;
+  --syn-def:#1565c0;
+  --syn-com:#8a8a8e;
+  --syn-op:#00796b;
+  --syn-type:#7b1fa2;
+  --syn-var:#1d1d1f;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   2. BASE
+   ═══════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+html{ -webkit-text-size-adjust:100%; }
+
+body{
+  height:100vh;
+  height:100svh;
+  overflow:hidden;
+  position:relative;
+  color:var(--text);
+  font-family:var(--font-sans);
+  font-size:15px;
+  line-height:1.5;
+  letter-spacing:-.011em;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  background:
+    radial-gradient(75% 50% at 50% -8%,var(--body-glow-1),transparent 65%),
+    radial-gradient(45% 35% at 88% 105%,var(--body-glow-2),transparent 70%),
+    var(--body-base);
+  transition:background-color .35s var(--ease),color .35s var(--ease);
+}
+
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+:focus-visible{ outline:2px solid var(--border-hi); outline-offset:2px; border-radius:6px; }
+
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface-hi);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--border-hi);background-clip:content-box}
+
+#particleCanvas{
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100vh;
+  z-index:1;
+  pointer-events:none;
+  display:block;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   3. APP SHELL
+   ═══════════════════════════════════════════════════════════ */
+.app{
+  position:relative;
+  z-index:10;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  height:100svh;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+
+/* ---------- top bar ---------- */
+.topbar{
+  flex-shrink:0;
+  height:var(--nav-h);
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding-left:max(16px,env(safe-area-inset-left));
+  padding-right:max(16px,env(safe-area-inset-right));
+  background:var(--nav-bg);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--nav-line);
+  transition:background-color .35s var(--ease),border-color .35s var(--ease);
+}
+
+.logo{
+  display:block;
+  font-family:var(--font-display);
+  font-size:17px;
+  font-weight:700;
+  letter-spacing:-.03em;
+  line-height:1.05;
+  color:var(--text);
+  flex-shrink:0;
+}
+.logo small{
+  display:block;
+  margin-top:2px;
+  font-family:var(--font-sans);
+  font-size:9px;
+  font-weight:600;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--text-4);
+}
+
+.topbar-spacer{flex:1;min-width:6px}
+
+/* segmented language switch */
+.segmented{
+  position:relative;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  width:196px;
+  padding:3px;
+  border-radius:999px;
+  background:var(--seg-bg);
+  border:1px solid var(--border);
+  flex-shrink:0;
+  transition:background-color .35s var(--ease),border-color .35s var(--ease);
+}
+.segmented-thumb{
+  position:absolute;
+  top:3px;left:3px;
+  width:calc(50% - 3px);
+  height:calc(100% - 6px);
+  border-radius:999px;
+  background:var(--seg-thumb);
+  box-shadow:var(--seg-shadow);
+  transition:transform .34s var(--ease),background-color .35s var(--ease);
+}
+.segmented[data-active="python"] .segmented-thumb{transform:translateX(100%)}
+.segmented-item{
+  position:relative;
+  z-index:1;
+  padding:6px 0;
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:-.01em;
+  color:var(--text-4);
+  border-radius:999px;
+  transition:color .22s var(--ease);
+  white-space:nowrap;
+}
+.segmented-item.is-active{color:var(--text)}
+
+/* buttons */
+.tb-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  height:34px;
+  padding:0 16px;
+  border-radius:var(--r-pill);
+  font-size:13.5px;
+  font-weight:600;
+  letter-spacing:-.012em;
+  white-space:nowrap;
+  transition:background .22s var(--ease),color .22s var(--ease),
+             border-color .22s var(--ease),transform .18s var(--ease),
+             opacity .22s var(--ease),box-shadow .22s var(--ease);
+  -webkit-tap-highlight-color:transparent;
+  border:1px solid transparent;
+}
+.tb-btn:active:not(:disabled){transform:scale(.96)}
+.tb-btn:disabled{opacity:.32;cursor:not-allowed}
+
+.tb-run{
+  background:var(--btn-primary-bg);
+  color:var(--btn-primary-fg);
+  border-color:var(--btn-primary-border);
+  box-shadow:0 4px 18px var(--btn-shadow);
+}
+.tb-run:hover:not(:disabled){
+  background:var(--btn-primary-bg-hover);
+  border-color:var(--btn-primary-border-hover);
+  box-shadow:0 6px 24px var(--btn-shadow-hover);
+}
+
+.tb-stop{
+  background:var(--surface);
+  color:var(--text-2);
+  border-color:var(--border);
+}
+.tb-stop:hover:not(:disabled){
+  background:rgba(255,69,58,.14);
+  border-color:rgba(255,69,58,.35);
+  color:var(--err);
+}
+html[data-theme="light"] .tb-stop:hover:not(:disabled){
+  background:rgba(215,0,21,.09);
+  border-color:rgba(215,0,21,.3);
+}
+
+.icon-btn{
+  display:grid;
+  place-items:center;
+  width:34px;height:34px;
+  flex-shrink:0;
+  border-radius:50%;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text-3);
+  transition:background .2s var(--ease),color .2s var(--ease),
+             border-color .2s var(--ease),transform .2s var(--ease);
+  -webkit-tap-highlight-color:transparent;
+}
+.icon-btn:hover{background:var(--surface-hi);border-color:var(--border-hi);color:var(--text);transform:scale(1.06)}
+.icon-btn:active{transform:scale(.94)}
+
+.theme-toggle{
+  position:relative;
+  display:grid;
+  place-items:center;
+  width:34px;height:34px;
+  flex-shrink:0;
+  border-radius:50%;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text-3);
+  transition:background .22s var(--ease),color .22s var(--ease),
+             border-color .22s var(--ease),transform .22s var(--ease);
+  -webkit-tap-highlight-color:transparent;
+}
+.theme-toggle:hover{background:var(--surface-hi);border-color:var(--border-hi);color:var(--text);transform:scale(1.06)}
+.theme-toggle:active{transform:scale(.94)}
+.theme-toggle svg{position:absolute;transition:opacity .34s var(--ease),transform .34s var(--ease)}
+.theme-toggle .icon-sun{opacity:0;transform:rotate(-90deg) scale(.5)}
+.theme-toggle .icon-moon{opacity:1;transform:rotate(0deg) scale(1)}
+html[data-theme="dark"] .theme-toggle .icon-sun{opacity:1;transform:rotate(0deg) scale(1)}
+html[data-theme="dark"] .theme-toggle .icon-moon{opacity:0;transform:rotate(90deg) scale(.5)}
+
+/* ---------- file tabs ---------- */
+.tabs{
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  height:38px;
+  padding:0 max(14px,env(safe-area-inset-left));
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.012);
+}
+.tabs::-webkit-scrollbar{display:none}
+
+.tab{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  height:26px;
+  padding:0 12px;
+  border-radius:8px;
+  font-size:12.5px;
+  font-weight:500;
+  letter-spacing:-.008em;
+  white-space:nowrap;
+  color:var(--text-4);
+  transition:background .18s var(--ease),color .18s var(--ease);
+  flex-shrink:0;
+}
+.tab:hover{background:var(--surface);color:var(--text-2)}
+.tab.is-active{background:var(--surface-hi);color:var(--text)}
+.tab .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tab .dot.cpp{background:#6e84ff}
+.tab .dot.python{background:#ffd60a}
+
+.tab-add{
+  display:grid;
+  place-items:center;
+  width:26px;height:26px;
+  border-radius:8px;
+  color:var(--text-4);
+  flex-shrink:0;
+  transition:background .18s var(--ease),color .18s var(--ease);
+}
+.tab-add:hover{background:var(--surface);color:var(--text)}
+
+/* ---------- split area ---------- */
+.split{
+  flex:1;
+  min-height:0;
+  display:grid;
+  grid-template-columns:var(--split-a,55%) 10px 1fr;
+  padding:10px max(14px,env(safe-area-inset-left)) 0 max(14px,env(safe-area-inset-right));
+}
+.split.no-inline{grid-template-columns:var(--split-a,55%) 10px 1fr}
+
+.gutter{
+  position:relative;
+  cursor:col-resize;
+  touch-action:none;
+  display:grid;
+  place-items:center;
+}
+.gutter::after{
+  content:"";
+  width:2px;
+  height:36px;
+  border-radius:99px;
+  background:var(--border);
+  transition:background .2s var(--ease),height .2s var(--ease);
+}
+.gutter:hover::after,.gutter.is-dragging::after{background:var(--border-hi);height:64px}
+body.is-resizing{cursor:col-resize;user-select:none}
+
+/* ---------- panels ---------- */
+.panel{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  min-height:0;
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-lg);
+  background:var(--panel-bg);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);
+  backdrop-filter:saturate(180%) blur(24px);
+  box-shadow:var(--glass-inset),0 18px 50px rgba(0,0,0,.35);
+  overflow:hidden;
+  transition:background-color .35s var(--ease),border-color .35s var(--ease);
+}
+html[data-theme="light"] .panel{box-shadow:var(--glass-inset),0 18px 50px rgba(0,0,0,.07)}
+
+.panel-head{
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  height:38px;
+  padding:0 12px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel-head-bg);
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--text-4);
+  user-select:none;
+}
+.panel-head .spacer{flex:1;min-width:4px}
+
+.lang-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  height:19px;
+  padding:0 9px;
+  border-radius:99px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:.09em;
+  color:var(--text-3);
+  text-transform:uppercase;
+}
+
+.mini-btn{
+  display:inline-flex;
+  align-items:center;
+  height:22px;
+  padding:0 10px;
+  border-radius:99px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--text-3);
+  transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease);
+}
+.mini-btn:hover{background:var(--surface-hi);color:var(--text);border-color:var(--border-hi)}
+
+.run-status{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:10.5px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:none;
+  color:var(--text-3);
+  min-width:0;
+}
+.run-status span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spinner{
+  width:11px;height:11px;flex-shrink:0;
+  border:1.6px solid var(--border-hi);
+  border-top-color:var(--text);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+  display:none;
+}
+.run-status.is-busy .spinner{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- editor ---------- */
+.editor-host{
+  flex:1;
+  min-height:0;
+  position:relative;
+  overflow:hidden;
+}
+.editor-host .CodeMirror{
+  position:absolute;
+  inset:0;
+  height:100%;
+  font-family:var(--font-mono);
+  font-size:14px;
+  line-height:1.62;
+  background:transparent;
+  color:var(--text);
+}
+
+/* ---------- terminal ---------- */
+.terminal{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  padding:12px 14px 18px;
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  line-height:1.68;
+  white-space:pre-wrap;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+  color:var(--text);
+  tab-size:4;
+  overscroll-behavior:contain;
+}
+.terminal:empty::before{
+  content:"Run your code to see output here.";
+  color:var(--text-4);
+  font-family:var(--font-sans);
+  font-size:12.5px;
+}
+.terminal .t-sys{color:var(--text-4)}
+.terminal .t-out{color:var(--text)}
+.terminal .t-err{color:var(--err)}
+.terminal .t-warn{color:var(--warn)}
+.terminal .t-ok{color:var(--ok)}
+
+/* ---------- stdin ---------- */
+.stdin-panel{
+  flex-shrink:0;
+  height:150px;
+  margin:10px max(14px,env(safe-area-inset-left)) 12px max(14px,env(safe-area-inset-right));
+}
+.stdin-panel textarea{
+  flex:1;
+  min-height:0;
+  width:100%;
+  resize:none;
+  border:0;
+  outline:none;
+  padding:11px 14px 14px;
+  background:transparent;
+  color:var(--text);
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  line-height:1.6;
+  tab-size:4;
+  overscroll-behavior:contain;
+}
+.stdin-panel textarea::placeholder{color:var(--input-placeholder)}
+
+/* ═══════════════════════════════════════════════════════════
+   4. CODEMIRROR THEME — "vibex"
+   ═══════════════════════════════════════════════════════════ */
+.cm-s-vibex.CodeMirror{background:transparent;color:var(--text)}
+.cm-s-vibex .CodeMirror-gutters{
+  background:transparent;
+  border-right:1px solid var(--border);
+  padding-right:4px;
+}
+.cm-s-vibex .CodeMirror-linenumber{color:var(--text-4);font-size:12px;padding-right:6px}
+.cm-s-vibex .CodeMirror-cursor{border-left:2px solid var(--text)}
+.cm-s-vibex .CodeMirror-selected{background:rgba(110,132,255,.22) !important}
+.cm-s-vibex .CodeMirror-focused .CodeMirror-selected{background:rgba(110,132,255,.30) !important}
+html[data-theme="light"] .cm-s-vibex .CodeMirror-selected{background:rgba(59,91,219,.16) !important}
+.cm-s-vibex .CodeMirror-activeline-background{background:rgba(255,255,255,.028)}
+html[data-theme="light"] .cm-s-vibex .CodeMirror-activeline-background{background:rgba(0,0,0,.022)}
+.cm-s-vibex .CodeMirror-matchingbracket{
+  color:var(--text) !important;
+  background:rgba(110,132,255,.25);
+  border-radius:3px;
+  outline:none;
+}
+.cm-s-vibex .CodeMirror-nonmatchingbracket{color:var(--err) !important}
+
+.cm-s-vibex .cm-error-line{
+  background:rgba(255,69,58,.14) !important;
+  box-shadow:inset 3px 0 0 var(--err);
+}
+
+.cm-s-vibex .cm-keyword{color:var(--syn-key)}
+.cm-s-vibex .cm-atom{color:var(--syn-num)}
+.cm-s-vibex .cm-number{color:var(--syn-num)}
+.cm-s-vibex .cm-def{color:var(--syn-def)}
+.cm-s-vibex .cm-variable{color:var(--syn-var)}
+.cm-s-vibex .cm-variable-2{color:var(--syn-def)}
+.cm-s-vibex .cm-variable-3,.cm-s-vibex .cm-type{color:var(--syn-type)}
+.cm-s-vibex .cm-property{color:var(--syn-def)}
+.cm-s-vibex .cm-operator{color:var(--syn-op)}
+.cm-s-vibex .cm-comment{color:var(--syn-com);font-style:italic}
+.cm-s-vibex .cm-string,.cm-s-vibex .cm-string-2{color:var(--syn-str)}
+.cm-s-vibex .cm-meta{color:var(--syn-type)}
+.cm-s-vibex .cm-builtin{color:var(--syn-def)}
+.cm-s-vibex .cm-qualifier{color:var(--syn-type)}
+.cm-s-vibex .cm-tag{color:var(--syn-key)}
+.cm-s-vibex .cm-attribute{color:var(--syn-type)}
+.cm-s-vibex .cm-bracket{color:var(--text-2)}
+.cm-s-vibex .cm-link{color:var(--syn-def)}
+
+/* hint popup */
+.CodeMirror-hints{
+  font-family:var(--font-mono) !important;
+  font-size:12.5px !important;
+  background:var(--glass-bg) !important;
+  border:1px solid var(--glass-border) !important;
+  border-radius:12px !important;
+  box-shadow:var(--glass-shadow) !important;
+  padding:5px !important;
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  z-index:400 !important;
+}
+.CodeMirror-hint{border-radius:7px !important;padding:4px 9px !important;color:var(--text-2) !important;max-width:60vw}
+li.CodeMirror-hint-active{background:var(--surface-hi) !important;color:var(--text) !important}
+
+/* dialog (search) */
+.CodeMirror-dialog{
+  background:var(--glass-bg) !important;
+  border-bottom:1px solid var(--border) !important;
+  color:var(--text) !important;
+  font-family:var(--font-sans) !important;
+  font-size:12.5px !important;
+  padding:8px 12px !important;
+}
+.CodeMirror-dialog input{
+  background:var(--input-bg) !important;
+  border:1px solid var(--border) !important;
+  border-radius:8px !important;
+  padding:4px 8px !important;
+  color:var(--text) !important;
+  font-family:var(--font-mono) !important;
+  outline:none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   5. MODALS
+   ═══════════════════════════════════════════════════════════ */
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:300;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:var(--backdrop);
+  -webkit-backdrop-filter:saturate(120%) blur(18px);
+  backdrop-filter:saturate(120%) blur(18px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s var(--ease),background-color .35s var(--ease);
+}
+.modal-backdrop.is-open{opacity:1;pointer-events:auto}
+
+.modal{
+  position:relative;
+  width:min(480px,100%);
+  max-height:min(84vh,700px);
+  display:flex;
+  flex-direction:column;
+  padding:24px 22px calc(24px + env(safe-area-inset-bottom));
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-xl);
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:saturate(180%) blur(28px);
+  backdrop-filter:saturate(180%) blur(28px);
+  box-shadow:var(--glass-shadow),var(--glass-inset);
+  transform:scale(.96) translateY(14px);
+  transition:transform .34s var(--ease),background-color .35s var(--ease),
+             border-color .35s var(--ease),box-shadow .35s var(--ease);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.modal-backdrop.is-open .modal{transform:scale(1) translateY(0)}
+
+.modal h3{
+  margin-bottom:4px;
+  padding-right:44px;
+  font-family:var(--font-display);
+  font-size:20px;
+  font-weight:700;
+  letter-spacing:-.03em;
+  color:var(--text);
+}
+.modal .modal-sub{
+  margin-bottom:18px;
+  font-size:12.5px;
+  line-height:1.6;
+  color:var(--text-4);
+}
+.modal .icon-btn{position:absolute;top:18px;right:18px}
+
+.field{margin-bottom:16px}
+.field label{
+  display:block;
+  margin-bottom:8px;
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--text-4);
+}
+.field input[type="number"]{
+  width:100%;
+  height:42px;
+  padding:0 16px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:var(--input-bg);
+  color:var(--input-text);
+  font-family:var(--font-mono);
+  font-size:14px;
+  outline:none;
+  transition:border-color .22s var(--ease),background .22s var(--ease),box-shadow .22s var(--ease);
+}
+.field input[type="number"]:focus{
+  border-color:var(--border-hi);
+  background:var(--input-bg-focus);
+  box-shadow:0 0 0 3.5px var(--surface);
+}
+.field .hint{margin-top:7px;font-size:11.5px;line-height:1.5;color:var(--text-4)}
+
+.actions{display:flex;gap:10px;margin-top:6px}
+.btn-solid{
+  flex:1;
+  height:44px;
+  border-radius:var(--r-pill);
+  border:1px solid var(--btn-primary-border);
+  background:var(--btn-primary-bg);
+  color:var(--btn-primary-fg);
+  font-size:14px;
+  font-weight:600;
+  letter-spacing:-.012em;
+  transition:background .22s var(--ease),color .35s var(--ease),
+             border-color .35s var(--ease),transform .18s var(--ease),box-shadow .22s var(--ease);
+}
+.btn-solid:hover:not(:disabled){
+  background:var(--btn-primary-bg-hover);
+  border-color:var(--btn-primary-border-hover);
+  transform:translateY(-1px);
+  box-shadow:0 8px 24px var(--btn-shadow-hover);
+}
+.btn-solid:active:not(:disabled){transform:scale(.98)}
+.btn-solid:disabled{opacity:.35;cursor:not-allowed}
+
+.btn-soft{
+  height:44px;
+  padding:0 20px;
+  border-radius:var(--r-pill);
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text-3);
+  font-size:13.5px;
+  font-weight:600;
+  transition:background .22s var(--ease),color .22s var(--ease),border-color .22s var(--ease);
+}
+.btn-soft:hover{background:var(--surface-hi);border-color:var(--border-hi);color:var(--text)}
+
+/* file list */
+.file-list{list-style:none;display:grid;gap:7px;margin-bottom:16px}
+.file-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:var(--r-md);
+  background:var(--surface);
+  transition:background .18s var(--ease),border-color .18s var(--ease);
+}
+.file-row.is-active{border-color:var(--border-hi);background:var(--surface-hi)}
+.file-row .fname{
+  flex:1;
+  min-width:0;
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  color:var(--text);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.file-row input.fname-edit{
+  flex:1;
+  min-width:0;
+  height:28px;
+  padding:0 9px;
+  border-radius:8px;
+  border:1px solid var(--border-hi);
+  background:var(--input-bg-focus);
+  color:var(--text);
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  outline:none;
+}
+.file-row .factions{display:flex;gap:4px;flex-shrink:0}
+.file-row .fbtn{
+  display:grid;
+  place-items:center;
+  width:28px;height:28px;
+  border-radius:8px;
+  color:var(--text-4);
+  transition:background .16s var(--ease),color .16s var(--ease);
+}
+.file-row .fbtn:hover{background:var(--surface-hi);color:var(--text)}
+.file-row .fbtn.danger:hover{background:rgba(255,69,58,.15);color:var(--err)}
+
+/* toast */
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(22px + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(14px);
+  z-index:400;
+  max-width:min(420px,88vw);
+  padding:10px 18px;
+  border-radius:var(--r-pill);
+  border:1px solid var(--glass-border);
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:var(--glass-shadow);
+  font-size:13px;
+  font-weight:500;
+  color:var(--text);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .28s var(--ease),transform .28s var(--ease);
+}
+.toast.is-on{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.is-err{color:var(--err)}
+.toast.is-ok{color:var(--ok)}
+
+/* fatal banner */
+.fatal{
+  position:fixed;
+  left:50%;
+  bottom:calc(22px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  z-index:400;
+  max-width:min(560px,92vw);
+  padding:12px 18px;
+  border-radius:14px;
+  border:1px solid rgba(255,69,58,.34);
+  background:rgba(255,69,58,.13);
+  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);
+  color:var(--err);
+  font-size:13px;
+  line-height:1.55;
+  text-align:center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   6. RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width:900px){
+  .split{
+    grid-template-columns:1fr !important;
+    grid-template-rows:var(--split-a,50%) 10px 1fr;
+  }
+  .gutter{cursor:row-resize}
+  .gutter::after{width:36px;height:2px}
+  .gutter:hover::after,.gutter.is-dragging::after{width:64px;height:2px}
+  body.is-resizing{cursor:row-resize}
+}
+
+@media (max-width:760px){
+  :root{--nav-h:52px}
+  .logo{font-size:15.5px}
+  .logo small{font-size:8px;letter-spacing:.12em}
+  .segmented{width:148px}
+  .segmented-item{font-size:12px}
+  .tb-btn{padding:0 12px;font-size:13px}
+  .tb-btn .btn-label{display:none}
+  .tb-btn{padding:0 13px}
+  .topbar{gap:9px}
+  .stdin-panel{height:112px;margin:8px 12px 10px}
+  .split{padding:8px 12px 0}
+  .tabs{padding:0 12px}
+}
+
+@media (max-width:480px){
+  .logo small{display:none}
+  .segmented{width:132px}
+  .icon-btn,.theme-toggle{width:32px;height:32px}
+  .terminal{font-size:11.5px;padding:10px 11px 16px}
+  .stdin-panel textarea{font-size:12px}
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="particleCanvas" aria-hidden="true"></canvas>
+
+<div class="app">
+
+  <!-- ══════════ TOP BAR ══════════ -->
+  <header class="topbar">
+    <span class="logo">Vibex<small>Code Studio</small></span>
+
+    <div class="segmented" id="langTabs" data-active="cpp" role="tablist" aria-label="Language">
+      <span class="segmented-thumb" aria-hidden="true"></span>
+      <button class="segmented-item is-active" data-lang="cpp" role="tab" aria-selected="true">C++</button>
+      <button class="segmented-item" data-lang="python" role="tab" aria-selected="false">Python</button>
+    </div>
+
+    <span class="topbar-spacer"></span>
+
+    <button class="tb-btn tb-run" id="runBtn" title="Run (Ctrl+Enter)">
+      <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.6 1.6v8.8L10.3 6z" fill="currentColor"/></svg>
+      <span class="btn-label">Run</span>
+    </button>
+    <button class="tb-btn tb-stop" id="stopBtn" disabled title="Stop execution">
+      <svg width="9" height="9" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="2" width="8" height="8" rx="1.6" fill="currentColor"/></svg>
+      <span class="btn-label">Stop</span>
+    </button>
+
+    <button class="icon-btn" id="filesBtn" title="Files" aria-label="Files">
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 2H5.5A1.5 1.5 0 004 3.5v13A1.5 1.5 0 005.5 18h9a1.5 1.5 0 001.5-1.5V7z"/>
+        <path d="M11 2v5h5"/>
+      </svg>
+    </button>
+
+    <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="10" cy="10" r="2.6"/>
+        <path d="M16.2 12.3a1.5 1.5 0 00.3 1.65l.05.06a1.8 1.8 0 11-2.55 2.55l-.06-.06a1.5 1.5 0 00-1.65-.3 1.5 1.5 0 00-.9 1.37v.17a1.8 1.8 0 11-3.6 0v-.09a1.5 1.5 0 00-.98-1.37 1.5 1.5 0 00-1.65.3l-.06.06A1.8 1.8 0 112.3 14.1l.06-.06a1.5 1.5 0 00.3-1.65 1.5 1.5 0 00-1.37-.9H1.1a1.8 1.8 0 110-3.6h.09a1.5 1.5 0 001.37-.98 1.5 1.5 0 00-.3-1.65l-.06-.06A1.8 1.8 0 114.75 2.65l.06.06a1.5 1.5 0 001.65.3h.07a1.5 1.5 0 00.9-1.37V1.5a1.8 1.8 0 113.6 0v.09a1.5 1.5 0 00.9 1.37 1.5 1.5 0 001.65-.3l.06-.06a1.8 1.8 0 112.55 2.55l-.06.06a1.5 1.5 0 00-.3 1.65v.07a1.5 1.5 0 001.37.9h.17a1.8 1.8 0 110 3.6h-.09a1.5 1.5 0 00-1.37.9z"/>
+      </svg>
+    </button>
+
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle appearance">
+      <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+      <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- ══════════ FILE TABS ══════════ -->
+  <div class="tabs" id="tabs" role="tablist" aria-label="Open files"></div>
+
+  <!-- ══════════ EDITOR + OUTPUT ══════════ -->
+  <main class="split" id="split">
+    <section class="panel" aria-label="Code editor">
+      <div class="panel-head">
+        <span id="editorFileLabel">main.cpp</span>
+        <span class="spacer"></span>
+        <span class="lang-badge" id="editorLangBadge">C++</span>
+      </div>
+      <div class="editor-host" id="editorHost"></div>
+    </section>
+
+    <div class="gutter" id="gutter" role="separator" aria-orientation="vertical" aria-label="Resize panels"></div>
+
+    <section class="panel" aria-label="Output terminal">
+      <div class="panel-head">
+        <span>Output</span>
+        <span class="spacer"></span>
+        <span class="run-status" id="runStatus"><span class="spinner"></span><span id="runStatusText"></span></span>
+        <button class="mini-btn" id="clearOutBtn">Clear</button>
+      </div>
+      <pre class="terminal" id="terminal" aria-live="polite"></pre>
+    </section>
+  </main>
+
+  <!-- ══════════ STDIN ══════════ -->
+  <section class="panel stdin-panel" aria-label="Program input">
+    <div class="panel-head">
+      <span>Input / stdin</span>
+      <span class="spacer"></span>
+      <span style="text-transform:none;letter-spacing:0;font-weight:500;font-size:10.5px">fed to cin / input()</span>
+    </div>
+    <textarea id="stdin" spellcheck="false" autocomplete="off" autocapitalize="off"
+      placeholder="5&#10;7" aria-label="Standard input"></textarea>
+  </section>
+</div>
+
+<!-- ══════════ FILES MODAL ══════════ -->
+<div class="modal-backdrop" id="filesBackdrop" role="dialog" aria-modal="true" aria-label="Files">
+  <div class="modal">
+    <button class="icon-btn" data-close="filesBackdrop" aria-label="Close">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M1.5 1.5l11 11M12.5 1.5l-11 11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+    <h3>Files</h3>
+    <p class="modal-sub">Everything is saved in this browser's local storage. Nothing is uploaded.</p>
+    <ul class="file-list" id="fileList"></ul>
+    <div class="actions">
+      <button class="btn-solid" id="newFileBtn">New file</button>
+      <button class="btn-soft" id="uploadBtn">Upload</button>
+      <input type="file" id="uploadInput" accept=".cpp,.cc,.cxx,.c,.h,.hpp,.py,.txt" style="display:none">
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SETTINGS MODAL ══════════ -->
+<div class="modal-backdrop" id="settingsBackdrop" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="modal">
+    <button class="icon-btn" data-close="settingsBackdrop" aria-label="Close">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M1.5 1.5l11 11M12.5 1.5l-11 11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+    <h3>Settings</h3>
+    <p class="modal-sub">Preferences are stored locally and restored on reload.</p>
+
+    <div class="field">
+      <label for="setTimeout">Execution timeout (seconds)</label>
+      <input type="number" id="setTimeout" min="2" max="120" step="1">
+      <p class="hint">Programs running longer than this are terminated. Infinite loops are killed safely.</p>
+    </div>
+
+    <div class="field">
+      <label for="setFont">Editor font size (px)</label>
+      <input type="number" id="setFont" min="10" max="24" step="1">
+    </div>
+
+    <div class="field">
+      <label for="setTab">Tab size (spaces)</label>
+      <input type="number" id="setTab" min="2" max="8" step="1">
+    </div>
+
+    <div class="actions" style="margin-top:14px">
+      <button class="btn-soft" id="resetWsBtn" style="flex:1">Reset workspace</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ══════════ CodeMirror ══════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchtags.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/anyword-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/jump-to-line.min.js"></script>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════
+   0. THEME
+   ═══════════════════════════════════════════════════════════ */
+const metaTheme = document.querySelector('meta[name="theme-color"]');
+
+function applyTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  try { localStorage.setItem("vibex-theme", theme); } catch(e){}
+  if (metaTheme) metaTheme.setAttribute("content", theme === "light" ? "#fbfbfd" : "#000000");
+  window.dispatchEvent(new CustomEvent("themechange", { detail:{ theme } }));
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  applyTheme(cur === "dark" ? "light" : "dark");
+}
+(function(){
+  const t = document.documentElement.getAttribute("data-theme") || "dark";
+  if (metaTheme) metaTheme.setAttribute("content", t === "light" ? "#fbfbfd" : "#000000");
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   1. CONSTANTS
+   ═══════════════════════════════════════════════════════════ */
+const LS_KEY = "vibex-code-studio-v1";
+
+const LANG_LABEL = { cpp: "C++", python: "Python" };
+const LANG_EXT   = { cpp: "cpp", python: "py" };
+const LANG_MODE  = { cpp: "text/x-c++src", python: "text/x-python" };
+
+const STARTERS = {
+  cpp:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int a, b;
+    cin >> a >> b;
+    cout << a + b << endl;
+    return 0;
+}
+`,
+  python:
+`a = int(input())
+b = int(input())
+print(a + b)
+`
+};
+
+const PYODIDE_VERSION = "0.26.4";
+const PYODIDE_BASE    = "https://cdn.jsdelivr.net/pyodide/v" + PYODIDE_VERSION + "/full/";
+
+/*
+ * JSCPP is a pure-JS C++ interpreter.
+ * The old jsDelivr URL (…/npm/jscpp@2.0.3/dist/JSCPP.es5.min.js) is dead.
+ * We now load the official GitHub Pages build, with a jsDelivr fallback.
+ */
+const JSCPP_URLS = [
+  "https://felixhao28.github.io/JSCPP/dist/JSCPP.es5.min.js",
+  "https://cdn.jsdelivr.net/npm/JSCPP@2.0.9/dist/JSCPP.es5.min.js",
+  "https://cdn.jsdelivr.net/npm/jscpp_patched@2.0.10/dist/JSCPP.es5.min.js"
+];
+
+const MAX_OUTPUT_CHARS = 400000;   // trim runaway output
+
+/* ═══════════════════════════════════════════════════════════
+   2. DOM SHORTCUTS
+   ═══════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  langTabs:   $("langTabs"),
+  runBtn:     $("runBtn"),
+  stopBtn:    $("stopBtn"),
+  filesBtn:   $("filesBtn"),
+  settingsBtn:$("settingsBtn"),
+  tabs:       $("tabs"),
+  split:      $("split"),
+  gutter:     $("gutter"),
+  editorHost: $("editorHost"),
+  fileLabel:  $("editorFileLabel"),
+  langBadge:  $("editorLangBadge"),
+  terminal:   $("terminal"),
+  clearOut:   $("clearOutBtn"),
+  runStatus:  $("runStatus"),
+  runStatusText: $("runStatusText"),
+  stdin:      $("stdin"),
+  filesBackdrop: $("filesBackdrop"),
+  fileList:   $("fileList"),
+  newFileBtn: $("newFileBtn"),
+  uploadBtn:  $("uploadBtn"),
+  uploadInput:$("uploadInput"),
+  settingsBackdrop: $("settingsBackdrop"),
+  setTimeoutInput: $("setTimeout"),
+  setFont:    $("setFont"),
+  setTab:     $("setTab"),
+  resetWsBtn: $("resetWsBtn"),
+  toast:      $("toast")
+};
+
+/* ═══════════════════════════════════════════════════════════
+   3. TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+const term = (function(){
+  let chars = 0;
+  function write(text, cls){
+    if (text === undefined || text === null || text === "") return;
+    text = String(text);
+
+    if (chars > MAX_OUTPUT_CHARS) return;
+    chars += text.length;
+
+    const span = document.createElement("span");
+    if (cls) span.className = cls;
+    span.textContent = text;
+    els.terminal.appendChild(span);
+
+    if (chars > MAX_OUTPUT_CHARS){
+      const note = document.createElement("span");
+      note.className = "t-warn";
+      note.textContent = "\n\n⚠ Output truncated — the program produced too much text.";
+      els.terminal.appendChild(note);
+    }
+    els.terminal.scrollTop = els.terminal.scrollHeight;
+  }
+  return {
+    clear(){ els.terminal.textContent = ""; chars = 0; },
+    raw(t, c){ write(t, c); },
+    sys(t){ write(t + "\n", "t-sys"); },
+    out(t){ write(t, "t-out"); },
+    err(t){ write(t, "t-err"); },
+    warn(t){ write(t, "t-warn"); },
+    ok(t){ write(t, "t-ok"); },
+    scroll(){ els.terminal.scrollTop = els.terminal.scrollHeight; }
+  };
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   4. PERSISTENCE
+   ═══════════════════════════════════════════════════════════ */
+function uid(){ return Math.random().toString(36).slice(2, 10); }
+
+function defaultState(){
+  const id = uid();
+  return {
+    language: "cpp",
+    activeId: id,
+    files: [{ id: id, name: "main.cpp", lang: "cpp", code: STARTERS.cpp }],
+    stdin: "",
+    settings: { timeout: 10, fontSize: 14, tabSize: 4 },
+    splitA: "55%"
+  };
+}
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return defaultState();
+    const s = JSON.parse(raw);
+    if (!s || !Array.isArray(s.files) || s.files.length === 0) return defaultState();
+    s.settings = Object.assign({ timeout:10, fontSize:14, tabSize:4 }, s.settings || {});
+    s.files = s.files.filter(f => f && f.id && f.name && f.lang);
+    if (!s.files.length) return defaultState();
+    if (!s.files.some(f => f.id === s.activeId)) s.activeId = s.files[0].id;
+    if (s.language !== "cpp" && s.language !== "python") s.language = s.files[0].lang;
+    if (typeof s.stdin !== "string") s.stdin = "";
+    if (typeof s.splitA !== "string") s.splitA = "55%";
+    return s;
+  } catch(e){
+    console.warn("[Vibex] could not read saved state", e);
+    return defaultState();
+  }
+}
+
+let state = loadState();
+let saveTimer = null;
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 350);
+}
+
+function saveNow(){
+  try {
+    state.stdin = els.stdin.value;
+    state.splitA = els.split.style.getPropertyValue("--split-a") ||
+                   getComputedStyle(els.split).getPropertyValue("--split-a") || "55%";
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch(e){
+    console.warn("[Vibex] save failed", e);
+  }
+}
+
+function persistSplit(){
+  const inline = els.split.style.getPropertyValue("--split-a");
+  if (inline) state.splitA = inline.trim();
+  scheduleSave();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   5. EDITOR
+   ═══════════════════════════════════════════════════════════ */
+let editor = null;
+
+function activeFile(){
+  return state.files.find(f => f.id === state.activeId) || null;
+}
+
+function buildEditor(){
+  editor = CodeMirror(els.editorHost, {
+    value: "",
+    mode: LANG_MODE[state.language],
+    theme: "vibex",
+    lineNumbers: true,
+    lineWrapping: false,
+    indentUnit: state.settings.tabSize,
+    tabSize: state.settings.tabSize,
+    indentWithTabs: false,
+    smartIndent: true,
+    electricChars: true,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    styleActiveLine: true,
+    viewportMargin: 40,
+    extraKeys: {
+      "Ctrl-Enter":  runCode,
+      "Cmd-Enter":   runCode,
+      "Shift-Enter": runCode,
+      "Tab": function(cm){
+        if (cm.somethingSelected()) cm.indentSelection("add");
+        else cm.replaceSelection(" ".repeat(cm.getOption("indentUnit")));
+      },
+      "Shift-Tab": function(cm){ cm.indentSelection("subtract"); },
+      "Ctrl-Space": function(cm){
+        cm.showHint({ hint: CodeMirror.hint.anyword, completeSingle: false });
+      },
+      "Ctrl-/": "toggleComment",
+      "Cmd-/":  "toggleComment",
+      "Ctrl-S": function(){ saveNow(); toast("Saved locally", "ok"); },
+      "Cmd-S":  function(){ saveNow(); toast("Saved locally", "ok"); }
+    }
+  });
+
+  editor.getWrapperElement().style.fontSize = state.settings.fontSize + "px";
+
+  editor.on("change", function(){
+    const f = activeFile();
+    if (f && f.code !== editor.getValue()) f.code = editor.getValue();
+    scheduleSave();
+  });
+
+  editor.on("focus", clearErrorMarks);
+}
+
+function applyFontSize(){
+  if (!editor) return;
+  editor.getWrapperElement().style.fontSize = state.settings.fontSize + "px";
+  editor.refresh();
+}
+
+/* ---- error-line highlighting ---- */
+let markedLines = [];
+
+function clearErrorMarks(){
+  if (!editor) return;
+  markedLines.forEach(function(n){
+    try { editor.removeLineClass(n, "background", "cm-error-line"); } catch(e){}
+  });
+  markedLines = [];
+}
+
+function markErrorLine(lineNumber){
+  if (!editor) return;
+  const total = editor.lineCount();
+  if (!Number.isFinite(lineNumber) || lineNumber < 1 || lineNumber > total) return;
+  clearErrorMarks();
+  const idx = lineNumber - 1;
+  editor.addLineClass(idx, "background", "cm-error-line");
+  markedLines.push(idx);
+  try {
+    editor.scrollIntoView({ line: idx, ch: 0 }, 90);
+  } catch(e){}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   6. FILE TABS + LANGUAGE SWITCHING
+   ═══════════════════════════════════════════════════════════ */
+function renderTabs(){
+  els.tabs.textContent = "";
+
+  state.files.forEach(function(f){
+    const tab = document.createElement("button");
+    tab.className = "tab" + (f.id === state.activeId ? " is-active" : "");
+    tab.setAttribute("role", "tab");
+    tab.title = f.name;
+
+    const dot = document.createElement("span");
+    dot.className = "dot " + f.lang;
+
+    const name = document.createElement("span");
+    name.textContent = f.name;
+
+    tab.appendChild(dot);
+    tab.appendChild(name);
+    tab.addEventListener("click", function(){ openFile(f.id); });
+    els.tabs.appendChild(tab);
+  });
+
+  const add = document.createElement("button");
+  add.className = "tab-add";
+  add.title = "New file";
+  add.setAttribute("aria-label", "New file");
+  add.innerHTML = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 2.2v9.6M2.2 7h9.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  add.addEventListener("click", function(){ createFile(state.language); });
+  els.tabs.appendChild(add);
+}
+
+function openFile(id){
+  const f = state.files.find(x => x.id === id);
+  if (!f) return;
+
+  state.activeId = id;
+  state.language = f.lang;
+
+  editor.setOption("mode", LANG_MODE[f.lang]);
+  editor.setValue(f.code);
+  clearErrorMarks();
+
+  els.fileLabel.textContent = f.name;
+  els.langBadge.textContent = LANG_LABEL[f.lang];
+
+  els.langTabs.dataset.active = f.lang;
+  Array.from(els.langTabs.querySelectorAll(".segmented-item")).forEach(function(b){
+    const on = b.dataset.lang === f.lang;
+    b.classList.toggle("is-active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+
+  renderTabs();
+  scheduleSave();
+  setTimeout(function(){ editor.refresh(); editor.focus(); }, 0);
+}
+
+function setLanguage(lang){
+  if (lang !== "cpp" && lang !== "python") return;
+  const existing = state.files.find(f => f.lang === lang);
+  if (existing) { openFile(existing.id); return; }
+
+  const f = {
+    id: uid(),
+    name: "main." + LANG_EXT[lang],
+    lang: lang,
+    code: STARTERS[lang]
+  };
+  state.files.push(f);
+  openFile(f.id);
+  toast("Created " + f.name, "ok");
+}
+
+function createFile(lang){
+  lang = (lang === "python") ? "python" : "cpp";
+  let n = state.files.filter(f => f.lang === lang).length + 1;
+  let name = "main." + LANG_EXT[lang];
+  if (state.files.some(f => f.name === name)) name = "file" + n + "." + LANG_EXT[lang];
+  while (state.files.some(f => f.name === name)) {
+    n++;
+    name = "file" + n + "." + LANG_EXT[lang];
+  }
+  const f = { id: uid(), name: name, lang: lang, code: STARTERS[lang] };
+  state.files.push(f);
+  openFile(f.id);
+  renderFileList();
+  toast("Created " + name, "ok");
+}
+
+function deleteFile(id){
+  if (state.files.length <= 1) { toast("At least one file is required", "err"); return; }
+  const f = state.files.find(x => x.id === id);
+  if (!f) return;
+  if (!window.confirm('Delete "' + f.name + '"? This cannot be undone.')) return;
+
+  const wasActive = (id === state.activeId);
+  state.files = state.files.filter(x => x.id !== id);
+
+  if (wasActive) {
+    openFile(state.files[0].id);
+  } else {
+    renderTabs();
+    scheduleSave();
+  }
+  renderFileList();
+  toast("Deleted " + f.name, "ok");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   7. FILES MODAL
+   ═══════════════════════════════════════════════════════════ */
+const ICONS = {
+  open:  '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3.5A1.5 1.5 0 002 4.5v7A1.5 1.5 0 003.5 13h7a1.5 1.5 0 001.5-1.5V9"/><path d="M9.5 2H14v4.5M14 2L7.5 8.5"/></svg>',
+  rename:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5l2 2L5 13l-2.6.6L3 11z"/></svg>',
+  down:  '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8m0 0L4.8 6.8M8 10l3.2-3.2"/><path d="M2.5 12.5h11"/></svg>',
+  del:   '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 9h5.8l.6-9"/></svg>'
+};
+
+function renderFileList(){
+  if (!els.fileList) return;
+  els.fileList.textContent = "";
+
+  state.files.forEach(function(f){
+    const li = document.createElement("li");
+    li.className = "file-row" + (f.id === state.activeId ? " is-active" : "");
+
+    const name = document.createElement("span");
+    name.className = "fname";
+    name.textContent = f.name;
+    name.title = f.name;
+    name.addEventListener("click", function(){ openFile(f.id); closeModal("filesBackdrop"); });
+
+    const actions = document.createElement("div");
+    actions.className = "factions";
+
+    function mkBtn(icon, title, cls, handler){
+      const b = document.createElement("button");
+      b.className = "fbtn" + (cls ? " " + cls : "");
+      b.innerHTML = icon;
+      b.title = title;
+      b.setAttribute("aria-label", title);
+      b.addEventListener("click", function(e){ e.stopPropagation(); handler(); });
+      return b;
+    }
+
+    actions.appendChild(mkBtn(ICONS.open, "Open", "", function(){
+      openFile(f.id);
+      closeModal("filesBackdrop");
+    }));
+
+    actions.appendChild(mkBtn(ICONS.rename, "Rename", "", function(){
+      startRename(li, f);
+    }));
+
+    actions.appendChild(mkBtn(ICONS.down, "Download", "", function(){
+      downloadText(f.code, f.name);
+      toast("Downloaded " + f.name, "ok");
+    }));
+
+    actions.appendChild(mkBtn(ICONS.del, "Delete", "danger", function(){
+      deleteFile(f.id);
+    }));
+
+    li.appendChild(name);
+    li.appendChild(actions);
+    els.fileList.appendChild(li);
+  });
+}
+
+function startRename(row, f){
+  const original = f.name;
+  row.textContent = "";
+
+  const input = document.createElement("input");
+  input.className = "fname-edit";
+  input.value = original;
+  input.spellcheck = false;
+
+  function commit(save){
+    const next = input.value.trim();
+    if (!save || !next || next === original) {
+      renderFileList();
+      return;
+    }
+    if (state.files.some(x => x.id !== f.id && x.name === next)) {
+      toast("A file with that name already exists", "err");
+      renderFileList();
+      return;
+    }
+    f.name = next;
+    if (f.id === state.activeId) els.fileLabel.textContent = next;
+    renderTabs();
+    renderFileList();
+    scheduleSave();
+    toast("Renamed to " + next, "ok");
+  }
+
+  input.addEventListener("keydown", function(e){
+    if (e.key === "Enter") { e.preventDefault(); commit(true); }
+    else if (e.key === "Escape") { e.preventDefault(); commit(false); }
+  });
+  input.addEventListener("blur", function(){ commit(true); });
+
+  row.appendChild(input);
+  input.focus();
+  input.select();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   8. MODAL PLUMBING
+   ═══════════════════════════════════════════════════════════ */
+function openModal(id){
+  els[id].classList.add("is-open");
+  document.body.style.overflow = "hidden";
+}
+function closeModal(id){
+  els[id].classList.remove("is-open");
+  const anyOpen = document.querySelector(".modal-backdrop.is-open");
+  if (!anyOpen) document.body.style.overflow = "";
+}
+function closeAllModals(){
+  document.querySelectorAll(".modal-backdrop.is-open").forEach(function(m){
+    m.classList.remove("is-open");
+  });
+  document.body.style.overflow = "";
+}
+
+document.querySelectorAll(".modal-backdrop").forEach(function(bd){
+  bd.addEventListener("click", function(e){
+    if (e.target === bd) closeModal(bd.id);
+  });
+});
+document.querySelectorAll("[data-close]").forEach(function(b){
+  b.addEventListener("click", function(){ closeModal(b.dataset.close); });
+});
+document.addEventListener("keydown", function(e){
+  if (e.key === "Escape") closeAllModals();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   9. TOAST
+   ═══════════════════════════════════════════════════════════ */
+let toastTimer = null;
+function toast(message, kind){
+  els.toast.textContent = message;
+  els.toast.className = "toast is-on" + (kind ? " is-" + kind : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ els.toast.className = "toast"; }, 2400);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   10. DOWNLOAD / UPLOAD
+   ═══════════════════════════════════════════════════════════ */
+function downloadText(text, filename){
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+
+function detectLang(filename){
+  const lower = filename.toLowerCase();
+  if (lower.endsWith(".py")) return "python";
+  if (lower.endsWith(".cpp") || lower.endsWith(".cc") || lower.endsWith(".cxx") ||
+      lower.endsWith(".c")   || lower.endsWith(".h")   || lower.endsWith(".hpp")) return "cpp";
+  return null;
+}
+
+els.uploadBtn.addEventListener("click", function(){ els.uploadInput.click(); });
+
+els.uploadInput.addEventListener("change", function(){
+  const file = els.uploadInput.files && els.uploadInput.files[0];
+  if (!file) return;
+
+  if (file.size > 2 * 1024 * 1024) {
+    toast("File too large (max 2 MB)", "err");
+    els.uploadInput.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onerror = function(){ toast("Could not read that file", "err"); };
+  reader.onload = function(){
+    const lang = detectLang(file.name) || state.language;
+    let name = file.name;
+    if (state.files.some(f => f.name === name)) {
+      const base = name.replace(/\.[^.]+$/, "");
+      const ext = (name.match(/\.[^.]+$/) || [".txt"])[0];
+      let i = 2;
+      while (state.files.some(f => f.name === base + "_" + i + ext)) i++;
+      name = base + "_" + i + ext;
+    }
+    const f = { id: uid(), name: name, lang: lang, code: String(reader.result) };
+    state.files.push(f);
+    openFile(f.id);
+    renderFileList();
+    toast("Uploaded " + name, "ok");
+  };
+  reader.readAsText(file);
+  els.uploadInput.value = "";
+});
+
+/* ═══════════════════════════════════════════════════════════
+   11. EXECUTION WORKER (inline source → Blob URL)
+   ═══════════════════════════════════════════════════════════ */
+const WORKER_SRC = `
+'use strict';
+
+var PYODIDE_BASE = '${PYODIDE_BASE}';
+var JSCPP_URLS   = ${JSON.stringify(JSCPP_URLS)};
+
+var runtime = null;
+var pyodide = null;
+var jscpp   = null;
+
+function post(m){ self.postMessage(m); }
+
+self.onmessage = function(e){
+  var msg = e.data || {};
+
+  if (msg.type === 'init') {
+    runtime = msg.runtime;
+    post({ type:'status', message:'Downloading runtime…' });
+    initRuntime(runtime).then(function(){
+      post({ type:'ready', runtime: runtime });
+    }).catch(function(err){
+      post({ type:'error', kind:'init', message: String((err && err.message) || err) });
+    });
+    return;
+  }
+
+  if (msg.type === 'run') {
+    if (runtime === 'python') runPython(msg);
+    else runCpp(msg);
+  }
+};
+
+function initRuntime(rt){
+  if (rt === 'python') {
+    if (pyodide) return Promise.resolve();
+    importScripts(PYODIDE_BASE + 'pyodide.js');
+    post({ type:'status', message:'Starting CPython…' });
+    return loadPyodide({ indexURL: PYODIDE_BASE }).then(function(p){
+      pyodide = p;
+      post({ type:'status', message:'Python ready.' });
+    });
+  }
+
+  /* -------- C++ (JSCPP) -------- */
+  if (jscpp) return Promise.resolve();
+
+  var lastErr = null;
+  for (var i = 0; i < JSCPP_URLS.length; i++) {
+    try {
+      importScripts(JSCPP_URLS[i]);
+      jscpp = self.JSCPP;
+      if (!jscpp) throw new Error('JSCPP global not found after import');
+      post({ type:'status', message:'C++ runtime ready.' });
+      return Promise.resolve();
+    } catch (err) {
+      lastErr = err;
+      /* try the next mirror */
+    }
+  }
+
+  throw new Error(
+    'Could not load the C++ runtime. ' +
+    'The CDN may be blocked by your network. ' +
+    'Last error: ' + (lastErr && lastErr.message ? lastErr.message : lastErr)
+  );
+}
+
+/* ---------------- Python ---------------- */
+function runPython(msg){
+  var t0 = performance.now();
+
+  var text  = String(msg.stdin == null ? '' : msg.stdin).replace(/\\r\\n/g, '\\n');
+  var lines = text.length ? text.split('\\n') : [];
+  if (lines.length && lines[lines.length - 1] === '') lines.pop();
+
+  var cursor = 0;
+  try {
+    pyodide.setStdin({
+      stdin: function(){
+        if (cursor >= lines.length) return null;
+        return lines[cursor++] + '\\n';
+      }
+    });
+  } catch (e) {
+    pyodide.setStdin({ stdin: function(){
+      if (cursor >= lines.length) return null;
+      return lines[cursor++];
+    }});
+  }
+
+  function batcher(kind){
+    return function(s){
+      if (s === undefined || s === null || s === '') return;
+      s = String(s);
+      if (s.charAt(s.length - 1) !== '\\n') s += '\\n';
+      post({ type: kind, data: s });
+    };
+  }
+  try {
+    pyodide.setStdout({ batched: batcher('stdout') });
+    pyodide.setStderr({ batched: batcher('stderr') });
+  } catch (e) {
+    post({ type:'stderr', data: 'Could not attach output streams.\\n' });
+  }
+
+  var ns = null;
+  try {
+    ns = pyodide.globals.get('dict')();
+    ns.set('__name__', '__main__');
+  } catch (e) { ns = null; }
+
+  var opts = ns ? { globals: ns } : undefined;
+
+  pyodide.runPythonAsync(msg.code, opts).then(function(){
+    if (ns && ns.destroy) { try { ns.destroy(); } catch(e){} }
+    post({ type:'exit', code: 0, ms: performance.now() - t0 });
+  }).catch(function(err){
+    if (ns && ns.destroy) { try { ns.destroy(); } catch(e){} }
+    var m = (err && err.message) ? err.message : String(err);
+    post({ type:'error', kind:'runtime', message: m });
+  });
+}
+
+/* ---------------- C++ ---------------- */
+function runCpp(msg){
+  var t0    = performance.now();
+  var input = String(msg.stdin == null ? '' : msg.stdin);
+
+  var pos = 0;
+  var config = {
+    stdio: {
+      write: function(s){
+        if (s === undefined || s === null) return;
+        post({ type:'stdout', data: String(s) });
+      },
+      read: function(){
+        if (pos >= input.length) return -1;
+        return input.charCodeAt(pos++);
+      }
+    }
+  };
+
+  try {
+    jscpp.run(msg.code, input, config);
+    post({ type:'exit', code: 0, ms: performance.now() - t0 });
+  } catch (err) {
+    var text = (err && err.message) ? err.message : String(err);
+    var isCompile = false;
+    try {
+      isCompile = !!(err && (err.name === 'CompileError' ||
+                             (jscpp.CompileError && err instanceof jscpp.CompileError)));
+    } catch (e) { isCompile = false; }
+
+    if (!isCompile && /syntax|unexpected|expected|undeclared|no member|not declared/i.test(text)) {
+      isCompile = true;
+    }
+
+    post({ type:'error', kind: isCompile ? 'compile' : 'runtime', message: text });
+  }
+}
+`;
+
+let workerUrl = null;
+try {
+  workerUrl = URL.createObjectURL(new Blob([WORKER_SRC], { type: "application/javascript" }));
+} catch(e){
+  console.error("[Vibex] could not create worker blob", e);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   12. RUNTIME MANAGEMENT
+   ═══════════════════════════════════════════════════════════ */
+const runtimes = {
+  cpp:    { worker: null, ready: false, loading: null },
+  python: { worker: null, ready: false, loading: null }
+};
+
+let running     = false;
+let runLang     = null;
+let runTimer    = null;
+let runStart    = 0;
+let firstOutput = false;
+
+function setStatus(text, busy){
+  els.runStatusText.textContent = text || "";
+  els.runStatus.classList.toggle("is-busy", !!busy);
+}
+
+function setRunning(on, lang){
+  running = on;
+  els.runBtn.disabled = on;
+  els.stopBtn.disabled = !on;
+  if (on) runLang = lang;
+}
+
+function destroyRuntime(lang){
+  const rt = runtimes[lang];
+  if (!rt) return;
+  if (rt.worker) {
+    try { rt.worker.terminate(); } catch(e){}
+  }
+  rt.worker = null;
+  rt.ready = false;
+  rt.loading = null;
+}
+
+function getRuntime(lang){
+  const rt = runtimes[lang];
+
+  if (rt.ready && rt.worker) return Promise.resolve(rt.worker);
+  if (rt.loading) return rt.loading;
+
+  rt.loading = new Promise(function(resolve, reject){
+    if (!workerUrl) {
+      rt.loading = null;
+      reject(new Error("Web Workers are unavailable in this browser."));
+      return;
+    }
+
+    let w;
+    try {
+      w = new Worker(workerUrl);
+    } catch (err) {
+      rt.loading = null;
+      reject(new Error(
+        "Could not start a Web Worker. If you opened this file directly, " +
+        "serve it over http:// or https:// instead of file://."
+      ));
+      return;
+    }
+
+    rt.worker = w;
+
+    function cleanup(){
+      w.removeEventListener("message", onMessage);
+      w.onerror = null;
+    }
+
+    function onMessage(e){
+      const d = e.data || {};
+
+      if (d.type === "ready") {
+        cleanup();
+        rt.ready = true;
+        rt.loading = null;
+        w.onmessage = function(ev){ handleWorkerMessage(lang, ev.data || {}); };
+        resolve(w);
+        return;
+      }
+
+      if (d.type === "status") {
+        setStatus(d.message, true);
+        return;
+      }
+
+      if (d.type === "error") {
+        cleanup();
+        rt.loading = null;
+        rt.ready = false;
+        rt.worker = null;
+        try { w.terminate(); } catch(err){}
+        reject(new Error(d.message || "Runtime initialisation failed."));
+      }
+    }
+
+    w.addEventListener("message", onMessage);
+
+    w.onerror = function(ev){
+      cleanup();
+      rt.loading = null;
+      rt.ready = false;
+      rt.worker = null;
+      try { w.terminate(); } catch(err){}
+      reject(new Error(
+        (ev && ev.message) ? ("Runtime error: " + ev.message)
+                           : "The " + LANG_LABEL[lang] + " runtime failed to load."
+      ));
+    };
+
+    w.postMessage({ type: "init", runtime: lang });
+  });
+
+  return rt.loading;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   13. RUN / STOP
+   ═══════════════════════════════════════════════════════════ */
+function formatMs(ms){
+  if (!Number.isFinite(ms)) return "";
+  if (ms < 1) return "<1 ms";
+  if (ms < 1000) return Math.round(ms) + " ms";
+  return (ms / 1000).toFixed(2) + " s";
+}
+
+async function runCode(){
+  if (running) return;
+
+  const file = activeFile();
+  if (!file) { toast("No file open", "err"); return; }
+
+  const lang = file.lang;
+  const code = file.code;
+
+  clearErrorMarks();
+  els.terminal.scrollTop = els.terminal.scrollHeight;
+
+  term.sys("\n$ Running " + LANG_LABEL[lang] + "…");
+  setRunning(true, lang);
+  setStatus("Preparing runtime…", true);
+
+  let worker;
+  try {
+    worker = await getRuntime(lang);
+  } catch (err) {
+    setStatus("");
+    term.err("\n" + (err && err.message ? err.message : "Failed to start the runtime."));
+    term.sys("Process could not be started.");
+    setRunning(false);
+    return;
+  }
+
+  if (!running || runLang !== lang) return;
+
+  firstOutput = true;
+  runStart = performance.now();
+  setStatus("Running…", true);
+
+  worker.postMessage({
+    type: "run",
+    code: code,
+    stdin: els.stdin.value
+  });
+
+  clearTimeout(runTimer);
+  const limit = Math.max(2, Math.min(120, state.settings.timeout)) * 1000;
+  runTimer = setTimeout(function(){
+    if (!running) return;
+    if (firstOutput) term.raw("\n");
+    term.warn("⏱ Execution timed out after " + (limit / 1000) + "s — terminating process.");
+    const l = runLang;
+    destroyRuntime(l);
+    term.sys(
+      l === "python"
+        ? "Python runtime was restarted. The next run will reload it (a few seconds)."
+        : "C++ runtime was restarted."
+    );
+    finishRun();
+  }, limit);
+}
+
+function handleWorkerMessage(lang, d){
+  switch (d.type) {
+    case "stdout":
+      term.out(d.data);
+      firstOutput = false;
+      break;
+
+    case "stderr":
+      term.err(d.data);
+      firstOutput = false;
+      break;
+
+    case "exit":
+      clearTimeout(runTimer);
+      if (firstOutput) term.raw("\n");
+      {
+        const ms = (typeof d.ms === "number") ? d.ms : (performance.now() - runStart);
+        if (d.code === 0 || d.code === undefined || d.code === null) {
+          term.ok("Process finished successfully." + (ms ? " (" + formatMs(ms) + ")" : ""));
+        } else {
+          term.err("Process exited with code " + d.code + ".");
+        }
+      }
+      finishRun();
+      break;
+
+    case "error":
+      clearTimeout(runTimer);
+      {
+        const message = d.message || "Unknown error.";
+        if (d.kind === "compile") {
+          term.err("\nCompilation failed\n\n" + message);
+        } else {
+          term.err("\nRuntime error\n\n" + message);
+        }
+        highlightFromMessage(message);
+      }
+      finishRun();
+      break;
+  }
+}
+
+/** Best-effort extraction of a source line number from an error message. */
+function highlightFromMessage(message){
+  if (!message) return;
+  let m;
+
+  m = /line\s+(\d+)/i.exec(message);
+  if (m) { markErrorLine(parseInt(m[1], 10)); return; }
+
+  m = /:(\d+):(\d+):/.exec(message);
+  if (m) { markErrorLine(parseInt(m[1], 10)); return; }
+
+  m = /\(line\s+(\d+)\)/i.exec(message);
+  if (m) { markErrorLine(parseInt(m[1], 10)); }
+}
+
+function finishRun(){
+  clearTimeout(runTimer);
+  runTimer = null;
+  setRunning(false);
+  setStatus("");
+  setTimeout(function(){ if (editor) editor.focus(); }, 0);
+}
+
+function stopCode(){
+  if (!running) return;
+  const lang = runLang;
+
+  clearTimeout(runTimer);
+  term.warn("\n■ Execution stopped by user.");
+  if (lang) destroyRuntime(lang);
+  term.sys(
+    lang === "python"
+      ? "Python runtime terminated. It will reload on the next run."
+      : "C++ runtime terminated."
+  );
+  finishRun();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   14. SETTINGS
+   ═══════════════════════════════════════════════════════════ */
+function syncSettingsUI(){
+  els.setTimeoutInput.value = state.settings.timeout;
+  els.setFont.value = state.settings.fontSize;
+  els.setTab.value = state.settings.tabSize;
+}
+
+function bindSettings(){
+  els.setTimeoutInput.addEventListener("change", function(){
+    let v = parseInt(els.setTimeoutInput.value, 10);
+    if (!Number.isFinite(v)) v = 10;
+    v = Math.max(2, Math.min(120, v));
+    state.settings.timeout = v;
+    els.setTimeoutInput.value = v;
+    scheduleSave();
+    toast("Timeout set to " + v + "s", "ok");
+  });
+
+  els.setFont.addEventListener("change", function(){
+    let v = parseInt(els.setFont.value, 10);
+    if (!Number.isFinite(v)) v = 14;
+    v = Math.max(10, Math.min(24, v));
+    state.settings.fontSize = v;
+    els.setFont.value = v;
+    applyFontSize();
+    scheduleSave();
+  });
+
+  els.setTab.addEventListener("change", function(){
+    let v = parseInt(els.setTab.value, 10);
+    if (!Number.isFinite(v)) v = 4;
+    v = Math.max(2, Math.min(8, v));
+    state.settings.tabSize = v;
+    els.setTab.value = v;
+    editor.setOption("tabSize", v);
+    editor.setOption("indentUnit", v);
+    scheduleSave();
+  });
+
+  els.resetWsBtn.addEventListener("click", function(){
+    if (!window.confirm("Reset the whole workspace? All local files and settings will be erased.")) return;
+    try { localStorage.removeItem(LS_KEY); } catch(e){}
+    state = defaultState();
+    closeAllModals();
+    applyStateToUI();
+    toast("Workspace reset", "ok");
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   15. SPLITTER
+   ═══════════════════════════════════════════════════════════ */
+function initGutter(){
+  const split  = els.split;
+  const gutter = els.gutter;
+  let dragging = false;
+
+  const isStacked = () => window.matchMedia("(max-width: 900px)").matches;
+
+  function pointFrom(e){
+    if (e.touches && e.touches.length) return e.touches[0];
+    return e;
+  }
+
+  function onMove(e){
+    if (!dragging) return;
+    const p = pointFrom(e);
+    const rect = split.getBoundingClientRect();
+
+    if (isStacked()) {
+      const pct = ((p.clientY - rect.top) / rect.height) * 100;
+      const clamped = Math.max(15, Math.min(85, pct));
+      split.style.setProperty("--split-a", clamped.toFixed(2) + "%");
+      split.style.gridTemplateRows = clamped.toFixed(2) + "% 10px 1fr";
+      split.style.gridTemplateColumns = "";
+    } else {
+      const pct = ((p.clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.max(15, Math.min(85, pct));
+      split.style.setProperty("--split-a", clamped.toFixed(2) + "%");
+      split.style.gridTemplateColumns = clamped.toFixed(2) + "% 10px 1fr";
+      split.style.gridTemplateRows = "";
+    }
+
+    if (editor) editor.refresh();
+    if (e.cancelable) e.preventDefault();
+  }
+
+  function onUp(){
+    if (!dragging) return;
+    dragging = false;
+    gutter.classList.remove("is-dragging");
+    document.body.classList.remove("is-resizing");
+    persistSplit();
+    if (editor) editor.refresh();
+  }
+
+  function onDown(e){
+    dragging = true;
+    gutter.classList.add("is-dragging");
+    document.body.classList.add("is-resizing");
+    if (e.cancelable) e.preventDefault();
+  }
+
+  gutter.addEventListener("mousedown", onDown);
+  gutter.addEventListener("touchstart", onDown, { passive:false });
+  window.addEventListener("mousemove", onMove, { passive:false });
+  window.addEventListener("touchmove", onMove, { passive:false });
+  window.addEventListener("mouseup", onUp);
+  window.addEventListener("touchend", onUp);
+  window.addEventListener("touchcancel", onUp);
+
+  let lastStacked = isStacked();
+  window.addEventListener("resize", function(){
+    const nowStacked = isStacked();
+    if (nowStacked !== lastStacked) {
+      lastStacked = nowStacked;
+      split.style.gridTemplateColumns = "";
+      split.style.gridTemplateRows = "";
+      if (state.splitA) split.style.setProperty("--split-a", state.splitA);
+      if (editor) editor.refresh();
+    }
+  }, { passive:true });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   16. WIRING
+   ═══════════════════════════════════════════════════════════ */
+function applyStateToUI(){
+  if (state.splitA) els.split.style.setProperty("--split-a", state.splitA);
+
+  syncSettingsUI();
+  editor.setOption("tabSize", state.settings.tabSize);
+  editor.setOption("indentUnit", state.settings.tabSize);
+  applyFontSize();
+
+  els.stdin.value = state.stdin || "";
+
+  openFile(state.activeId);
+  renderFileList();
+}
+
+function bindUI(){
+  els.langTabs.addEventListener("click", function(e){
+    const btn = e.target.closest(".segmented-item");
+    if (!btn) return;
+    setLanguage(btn.dataset.lang);
+  });
+
+  els.runBtn.addEventListener("click", runCode);
+  els.stopBtn.addEventListener("click", stopCode);
+  els.clearOut.addEventListener("click", function(){ term.clear(); });
+
+  els.filesBtn.addEventListener("click", function(){
+    renderFileList();
+    openModal("filesBackdrop");
+  });
+
+  els.settingsBtn.addEventListener("click", function(){
+    syncSettingsUI();
+    openModal("settingsBackdrop");
+  });
+
+  els.newFileBtn.addEventListener("click", function(){ createFile(state.language); });
+
+  els.stdin.addEventListener("input", scheduleSave);
+
+  document.addEventListener("keydown", function(e){
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      runCode();
+    }
+  });
+
+  window.addEventListener("resize", function(){
+    if (editor) editor.refresh();
+  }, { passive:true });
+
+  window.addEventListener("beforeunload", function(){
+    saveNow();
+    if (workerUrl) URL.revokeObjectURL(workerUrl);
+  });
+
+  document.addEventListener("visibilitychange", function(){
+    if (document.hidden) saveNow();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   17. BOOT
+   ═══════════════════════════════════════════════════════════ */
+function boot(){
+  const problems = [];
+  if (typeof CodeMirror === "undefined") problems.push("CodeMirror failed to load from the CDN.");
+  if (typeof Worker === "undefined") problems.push("Web Workers are not supported by this browser.");
+
+  if (problems.length) {
+    const banner = document.createElement("div");
+    banner.className = "fatal";
+    banner.textContent = problems.join(" ") +
+      " Check your network connection and reload the page.";
+    document.body.appendChild(banner);
+    return;
+  }
+
+  try {
+    buildEditor();
+  } catch (err) {
+    const banner = document.createElement("div");
+    banner.className = "fatal";
+    banner.textContent = "The editor could not be initialised: " + (err.message || err);
+    document.body.appendChild(banner);
+    return;
+  }
+
+  initGutter();
+  bindSettings();
+  bindUI();
+  applyStateToUI();
+
+  setStatus("");
+  setTimeout(function(){ editor.refresh(); }, 60);
+
+  if (location.protocol === "file:") {
+    const banner = document.createElement("div");
+    banner.className = "fatal";
+    banner.textContent =
+      "You opened this file directly (file://). Web Workers and Pyodide are blocked " +
+      "in that mode — serve the folder over http://localhost instead.";
+    document.body.appendChild(banner);
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", boot);
+} else {
+  boot();
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   PARTICLE FIELD — same treatment as the Vibex landing page:
+   sparse, slow random drift, 60% opacity.
+   ═══════════════════════════════════════════════════════════ */
+(function(){
+  "use strict";
+
+  var canvas = document.getElementById("particleCanvas");
+  if (!canvas) return;
+
+  var ctx = canvas.getContext("2d", { alpha: true });
+  if (!ctx) return;
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var dpr = 1, w = 0, h = 0;
+  var dots = [];
+  var px = -9999, py = -9999;
+  var rafId = null;
+  var lastFrame = 0;
+
+  var dotColor  = "rgba(255,255,255,0.6)";
+  var lineColor = "rgba(255,255,255,0.06)";
+  var LINK_DIST  = 120;
+  var LINK_DIST2 = LINK_DIST * LINK_DIST;
+
+  function readColors(){
+    var theme = document.documentElement.getAttribute("data-theme") || "dark";
+    if (theme === "light"){
+      dotColor  = "rgba(0,0,0,0.55)";
+      lineColor = "rgba(0,0,0,0.05)";
+    } else {
+      dotColor  = "rgba(255,255,255,0.6)";
+      lineColor = "rgba(255,255,255,0.06)";
+    }
+  }
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = window.innerWidth;
+    h = window.innerHeight;
+
+    canvas.width  = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width  = w + "px";
+    canvas.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    var count = Math.min(60, Math.max(22, Math.round((w * h) / 36000)));
+
+    dots = [];
+    for (var i = 0; i < count; i++){
+      var angle = Math.random() * Math.PI * 2;
+      var speed = (3 + Math.random() * 5) * (reduceMotion ? 0.55 : 1);
+      dots.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        targetVx: Math.cos(angle) * speed,
+        targetVy: Math.sin(angle) * speed,
+        nextTurn: performance.now() + 3500 + Math.random() * 5500,
+        r: Math.random() * 1.0 + 0.5
+      });
+    }
+  }
+
+  function paintStatic(){
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = dotColor;
+    for (var i = 0; i < dots.length; i++){
+      var d = dots[i];
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, 6.2832);
+      ctx.fill();
+    }
+  }
+
+  function frame(now){
+    ctx.clearRect(0, 0, w, h);
+
+    var dt = lastFrame ? Math.min(50, now - lastFrame) : 16.67;
+    lastFrame = now;
+
+    for (var i = 0; i < dots.length; i++){
+      var d = dots[i];
+
+      if (now >= d.nextTurn){
+        var turn = Math.random() * Math.PI * 2;
+        var turnSpeed = (3 + Math.random() * 5) * (reduceMotion ? 0.55 : 1);
+        d.targetVx = Math.cos(turn) * turnSpeed;
+        d.targetVy = Math.sin(turn) * turnSpeed;
+        d.nextTurn = now + 1800 + Math.random() * 4200;
+      }
+
+      d.vx += (d.targetVx - d.vx) * 0.018;
+      d.vy += (d.targetVy - d.vy) * 0.018;
+      d.x  += d.vx * (dt / 1000);
+      d.y  += d.vy * (dt / 1000);
+
+      if (d.x < -10) d.x = w + 10;
+      else if (d.x > w + 10) d.x = -10;
+      if (d.y < -10) d.y = h + 10;
+      else if (d.y > h + 10) d.y = -10;
+
+      var dx = d.x - px;
+      var dy = d.y - py;
+      var dist2 = dx * dx + dy * dy;
+      if (dist2 < 12100 && dist2 > 0.01){
+        var f = 0.4 / Math.sqrt(dist2);
+        d.x += dx * f * 0.035;
+        d.y += dy * f * 0.035;
+      }
+    }
+
+    ctx.lineWidth = 1;
+    var light = document.documentElement.getAttribute("data-theme") === "light";
+    for (var a = 0; a < dots.length; a++){
+      for (var b = a + 1; b < dots.length; b++){
+        var dx2 = dots[a].x - dots[b].x;
+        var dy2 = dots[a].y - dots[b].y;
+        var dd2 = dx2 * dx2 + dy2 * dy2;
+        if (dd2 < LINK_DIST2){
+          var alpha = (1 - (dd2 / LINK_DIST2)) * 0.06;
+          ctx.strokeStyle = light
+            ? "rgba(0,0,0," + (alpha * 0.8).toFixed(3) + ")"
+            : "rgba(255,255,255," + alpha.toFixed(3) + ")";
+          ctx.beginPath();
+          ctx.moveTo(dots[a].x, dots[a].y);
+          ctx.lineTo(dots[b].x, dots[b].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    ctx.fillStyle = dotColor;
+    for (var k = 0; k < dots.length; k++){
+      var p = dots[k];
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+      ctx.fill();
+    }
+
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function start(){
+    if (rafId === null){
+      lastFrame = 0;
+      rafId = requestAnimationFrame(frame);
+    }
+  }
+  function stop(){
+    if (rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  var resizeTimer;
+  window.addEventListener("resize", function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function(){ resize(); paintStatic(); }, 150);
+  }, { passive: true });
+
+  window.addEventListener("pointermove", function(e){
+    px = e.clientX; py = e.clientY;
+  }, { passive: true });
+
+  window.addEventListener("pointerleave", function(){ px = py = -9999; }, { passive: true });
+
+  document.addEventListener("visibilitychange", function(){
+    if (document.hidden) stop(); else start();
+  });
+
+  window.addEventListener("themechange", readColors);
+
+  readColors();
+  resize();
+  start();
+})();
+</script>
+</body>
+</html>
